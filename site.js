@@ -1,43 +1,110 @@
-// Initialize the application
-function initializeTable() {
-    const NUMBER_OF_ROWS = 10;
-    const NUMBER_OF_COLUMNS = 10;
-    const app = document.getElementById('app');
-    const table = createSpreadsheetTable(app, NUMBER_OF_ROWS, NUMBER_OF_COLUMNS)
-    app.appendChild(table);
-}
-
-// Draw the spreadsheet table
-function createSpreadsheetTable(parentEl, numRows, numColumns) {
+/**
+ * Draw the spreadsheet table
+ * 
+ * @param {number} numRows: Number of rows
+ * @param {number} numColumns: Number of columns
+ * @returns {Element} table: Intialized table element
+ */
+function createSpreadsheetTable(numRows, numColumns) {
     const table = document.createElement('table');
-
-    // Create the header
-    let rowEl;
-    let columnEl;
+    table.className = "spreadsheet";
 
     const label = 'A';
-    for (let row = 0; row < numRows + 1; row++) {
-        rowEl = document.createElement('tr')
+    for (let rowId = 0; rowId < numRows + 1; rowId++) {
+        const tr = document.createElement('tr')
 
-        // Add label for each row
-        const rowLabel = document.createElement('td');
-        if (row >= 1) {
-            rowLabel.innerHTML = row;
+        // Add label for eachrowId 
+        const td = document.createElement('td');
+        if (rowId >= 1) {
+            td.innerHTML = rowId;
         }
-        rowEl.appendChild(rowLabel);
+        td.classList.add('rowLabel');
+        tr.appendChild(td);
 
-        for (let col = 0; col < numColumns; col++) {
-            columnEl = document.createElement('th');
-
+        for (let colId = 0; colId < numColumns; colId++) {
             // Add label for each column
-            if (row === 0) {
-                columnEl.innerHTML = String.fromCharCode(label.charCodeAt(0) + col)
+            const columnName = String.fromCharCode(label.charCodeAt(0) + colId);
+            if (rowId === 0) {
+                const th = document.createElement('th');
+                th.innerHTML = columnName;
+                th.classList.add('columnLabel')
+                tr.appendChild(th);
+            } else {
+                const td = document.createElement('td');
+                td.classList.add('cell')
+                td.setAttribute('id', `${columnName}-${rowId}`)
+                tr.appendChild(td);
             }
-            rowEl.appendChild(columnEl);
         }
-        table.appendChild(rowEl);
+        table.appendChild(tr);
     }
     return table;
+}
+
+function createCellValueInput() {
+    const cellValueInput = document.createElement('input');
+    cellValueInput.setAttribute('id', 'cellValue')
+    cellValueInput.style.marginBottom = "1em";
+    cellValueInput.disabled = true;
+    return cellValueInput;
+}
+
+/**
+ * Handle on click cell
+ * 
+ * @param {Event} e 
+ * @param {boolean} selectedCell 
+ */
+function handleClickCell(e, selectedCell) {
+    e.preventDefault();
+    const id = e.target.id;
+
+    if (selectedCell.id) {
+        const previousCell = document.getElementById(selectedCell.id)
+        previousCell.style.background = 'none';
+    }
+
+    if (selectedCell?.isSelected && selectedCell?.id === id) {
+        selectedCell.isSelected = false;
+    } else {
+        selectedCell.id = id;
+        selectedCell.isSelected = true;
+        e.target.style.background = 'red';
+    }
+}
+
+/**
+ * Initialize the application
+ */
+function initializeTable() {
+    const NUMBER_OF_ROWS = 20;
+    const NUMBER_OF_COLUMNS = 10;
+    const app = document.getElementById('app');
+    const inputValueForm = document.createElement('form');
+    const table = createSpreadsheetTable(NUMBER_OF_ROWS, NUMBER_OF_COLUMNS);
+    const cellValueInput = createCellValueInput();
+
+    const selectedCell = {
+        isSelected: false,
+    }
+
+    const cells = table.querySelectorAll('.cell');
+    cells.forEach(el => {
+        el.addEventListener('click', (e) => {
+            handleClickCell(e, selectedCell);
+            cellValueInput.disabled = !selectedCell.isSelected;
+            cellValueInput.value = '';
+        });
+    });
+
+    inputValueForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        console.log('submit', e.target.cellValue.value)
+    });
+
+    inputValueForm.appendChild(cellValueInput);
+    app.appendChild(inputValueForm);
+    app.appendChild(table);
 }
 
 window.onload = initializeTable;

@@ -1,0 +1,28 @@
+.spreadsheet {
+    border-collapse: collapse;
+    text-align: right;
+}
+
+th, td {
+    border: 1px solid black;
+}
+
+.rowLabel {
+    width: 1.5em;
+    background-color: lightblue;
+    text-align: center;
+}
+
+.columnLabel {
+    text-align: center;
+    background-color: lightblue;
+}
+
+.cell {
+    width: 5em;
+}
+
+.cell:hover {
+    background-color: grey;
+    cursor: pointer;
+}
