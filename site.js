@@ -73,10 +73,15 @@ function handleClickCell(e, selectedCell) {
     }
 }
 
+function handleUpdateCellValue(selectedCell, value) {
+    const cell = document.getElementById(selectedCell.id);
+    cell.innerHTML = value;
+}
+
 /**
  * Initialize the application
  */
-function initializeTable() {
+function initializeSpreadsheet() {
     const NUMBER_OF_ROWS = 20;
     const NUMBER_OF_COLUMNS = 10;
     const app = document.getElementById('app');
@@ -88,18 +93,23 @@ function initializeTable() {
         isSelected: false,
     }
 
+    // Add onclick event listener for each cell in the table
     const cells = table.querySelectorAll('.cell');
     cells.forEach(el => {
         el.addEventListener('click', (e) => {
+            e.preventDefault();
             handleClickCell(e, selectedCell);
             cellValueInput.disabled = !selectedCell.isSelected;
             cellValueInput.value = '';
         });
     });
 
+    // Add onsubmit event listener to input to enter cell value
     inputValueForm.addEventListener('submit', (e) => {
         e.preventDefault();
-        console.log('submit', e.target.cellValue.value)
+        const value = e.target.cellValue.value;
+        // TODO: Validate the value
+        handleUpdateCellValue(selectedCell, value);
     });
 
     inputValueForm.appendChild(cellValueInput);
@@ -107,4 +117,4 @@ function initializeTable() {
     app.appendChild(table);
 }
 
-window.onload = initializeTable;
+window.onload = initializeSpreadsheet;
