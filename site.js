@@ -11,6 +11,7 @@ function createSpreadsheetTable(
 ) {
   const table = document.createElement("table");
   table.className = "spreadsheet";
+  table.id = "Table";
 
   const label = "A";
   for (
@@ -162,9 +163,18 @@ function initializeSpreadsheet() {
   clearButton.addEventListener(
     "click",
     function () {
-      // cells[i].value = "";
-      if (cells.innerHTML === "") {
-        cells.innerHTML = "cell empty.";
+      const Table =
+        document.getElementById("Table");
+      for (let row of Table.rows) {
+        for (let cell of document.getElementsByClassName(
+          "cell"
+        )) {
+          if (cell.innerHTML != "") {
+            cell.innerHTML = "";
+          } else {
+            cell.innerHTML = "";
+          }
+        }
       }
     }
   );
