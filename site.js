@@ -1,3 +1,89 @@
+// Global constants
+const NUMBER_OF_ROWS = 20;
+const NUMBER_OF_COLUMNS = 10;
+
+class Cell {
+  constructor(value="") {
+    this._value = value;
+    this._evaluatedValue = value;
+  }
+  get value() {
+    return this._value;
+  }
+
+  get evaluatedValue() {
+    return this._evaluatedValue;
+  }
+
+  set value(value) {
+    this._value = value;
+  }
+
+  set evaluatedValue(value) {
+    this._evaluatedValue = value;
+  }
+}
+
+// Global application store to keep track of the application's state
+const SpreadsheetApp = (() => {
+  const _spreadsheet = new Array(NUMBER_OF_ROWS)
+    .fill(0)
+    .map(() => new Array(NUMBER_OF_COLUMNS).fill(new Cell()));
+
+  let _state = {
+    selectedId: null,
+    spreadsheet: _spreadsheet,
+  }
+
+  const Store = {
+    getSelectedId() {
+      return _state.selectedId;
+    },
+
+    isCellSelected() {
+      return _state.selectedId !== null;
+    },
+
+    selectCell(id) {
+      _state.selectedId = id;
+    },
+
+    deselectCell() {
+      _state.selectedId = null;
+    },
+
+    updateCell(value) {
+      if (!this.getSelectedId()) {
+        return false;
+      }
+
+      const [row, col] = this._getCoordinates();
+      const cell = _state.spreadsheet[row][col];
+      cell.value = value;
+
+      return true;
+    },
+
+    // _isFormula(value) {
+    //   if (!isNaN(value)) {
+    //     return false;
+    //   }
+
+    //   return true;
+    // }
+
+    _getCoordinates() {
+      if (!_state.selectedId) {
+        return [-1, -1];
+      }
+      const [column, row] = _state.selectedId.split('-');
+      return [Number.parseInt(row) -1, column.charCodeAt(0) - 'A'.charCodeAt(0)];
+    },
+  };
+
+  return Object.freeze(Store);
+})();
+
 /**
  * Draw the spreadsheet table
  *
@@ -39,50 +125,99 @@ function createSpreadsheetTable(numRows, numColumns) {
     }
     table.appendChild(tr);
   }
+
+  // Add onclick event listener for each cell in the table
+  const cells = table.querySelectorAll(".cell");
+  cells.forEach((el) => {
+    el.addEventListener("click", (e) => {
+      handleClickCell(e);
+    });
+  });
+
   return table;
 }
 
-function createCellValueInput() {
+function createCellValueForm() {
+  const inputValueForm = document.createElement("form");
   const cellValueInput = document.createElement("input");
   cellValueInput.setAttribute("id", "cellValue");
   cellValueInput.disabled = true;
-  return cellValueInput;
+
+  // Add onsubmit event listener to input to enter cell value
+  inputValueForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const value = e.target.cellValue.value;
+    handleUpdateCellValue(value);
+  });
+
+  // Append elements to the body
+  inputValueForm.appendChild(cellValueInput);
+  return inputValueForm;
 }
 
 /**
- * Handle on click cell
+ * Handle on click cell and update cell id
  *
  * @param {Event} e
- * @param {boolean} selectedCell
  */
-function handleClickCell(e, selectedCell) {
+function handleClickCell(e) {
   e.preventDefault();
-  const id = e.target.id;
+  const id = SpreadsheetApp.getSelectedId();
 
-  if (selectedCell.id) {
-    const previousCell = document.getElementById(selectedCell.id);
+  const newId = e.target.id;
+
+  // Deselect cell that are being selected
+  if (id) {
+    const previousCell = document.getElementById(id);
     previousCell.style.background = "none";
   }
 
-  if (selectedCell?.isSelected && selectedCell?.id === id) {
-    selectedCell.isSelected = false;
+  // Deselect if clicking on the currently selected cell
+  // Otherwise, select the cell and focus on the CellValueInput
+  if (id && id === newId) {
+    SpreadsheetApp.deselectCell();
   } else {
-    selectedCell.id = id;
-    selectedCell.isSelected = true;
+    SpreadsheetApp.selectCell(newId);
     e.target.style.background = "red";
+    const cellValueInput = document.getElementById('cellValue');
+    cellValueInput.disabled = !SpreadsheetApp.isCellSelected();
+    cellValueInput.focus();
+    cellValueInput.value = "";
   }
 }
 
-function handleUpdateCellValue(selectedCell, value) {
-  const cell = document.getElementById(selectedCell.id);
-  cell.innerHTML = value;
+/**
+ * Get selected cell and handle update the cell value
+ * @param {*} value 
+ */
+function handleUpdateCellValue(value) {
+  if (SpreadsheetApp.updateCell(value)) {
+    const id = SpreadsheetApp.getSelectedId();
+    const cell = document.getElementById(id);
+    cell.innerHTML = value;
+  } else {
+    // TODO: Error for invalid formula
+  }
 }
 
-//handle the clear button
-function createClearBtn() {
+/**
+ * Create clear button element
+ * @returns Clear button element
+ */
+function createClearBtn(tableEl) {
   const clearBtn = document.createElement("button");
   clearBtn.innerHTML = "Clear";
   clearBtn.style.marginRight = "1em";
+
+  clearBtn.addEventListener("click", function () {
+    for (let cell of document.getElementsByClassName("cell")) {
+      if (cell.innerHTML != "") {
+        cell.innerHTML = "";
+      } else {
+        cell.innerHTML = "";
+      }
+    }
+  });
 
   return clearBtn;
 }
@@ -91,60 +226,22 @@ function createClearBtn() {
  * Initialize the application
  */
 function initializeSpreadsheet() {
-  const NUMBER_OF_ROWS = 20;
-  const NUMBER_OF_COLUMNS = 10;
+  // Create app container
   const app = document.getElementById("app");
-  const inputValueForm = document.createElement("form");
-  const table = createSpreadsheetTable(NUMBER_OF_ROWS, NUMBER_OF_COLUMNS);
-  const cellValueInput = createCellValueInput();
 
-  const clearButton = createClearBtn();
-
-  const selectedCell = {
-    isSelected: false,
-  };
-
-  // Add onclick event listener for each cell in the table
-  const cells = table.querySelectorAll(".cell");
-  cells.forEach((el) => {
-    el.addEventListener("click", (e) => {
-      e.preventDefault();
-      handleClickCell(e, selectedCell);
-      cellValueInput.disabled = !selectedCell.isSelected;
-      cellValueInput.focus();
-      cellValueInput.value = "";
-    });
-  });
-
-  // Add onsubmit event listener to input to enter cell value
-  inputValueForm.addEventListener("submit", (e) => {
-    e.preventDefault();
-    const value = e.target.cellValue.value;
-    // TODO: Validate the value
-    handleUpdateCellValue(selectedCell, value);
-  });
-
-  clearButton.addEventListener("click", function () {
-    const Table = document.getElementById("Table");
-    for (let row of Table.rows) {
-      for (let cell of document.getElementsByClassName("cell")) {
-        if (cell.innerHTML != "") {
-          cell.innerHTML = "";
-        } else {
-          cell.innerHTML = "";
-        }
-      }
-    }
-  });
-
-  inputValueForm.appendChild(cellValueInput);
-
+  // Create container for clear button and form
   const controlGroup = document.createElement('div');
   controlGroup.style.display = 'flex';
-  controlGroup.appendChild(clearButton);
-  controlGroup.appendChild(inputValueForm);
   controlGroup.style.marginBottom = '1em';
 
+  // Create core elements
+  const table = createSpreadsheetTable(NUMBER_OF_ROWS, NUMBER_OF_COLUMNS);
+  const cellValueForm = createCellValueForm();
+  const clearButton = createClearBtn(table);
+
+  // Append core elements to the app container
+  controlGroup.appendChild(clearButton);
+  controlGroup.appendChild(cellValueForm);
   app.appendChild(controlGroup);
   app.appendChild(table);
 }
