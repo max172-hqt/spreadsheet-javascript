@@ -2,6 +2,9 @@
 const NUMBER_OF_ROWS = 20;
 const NUMBER_OF_COLUMNS = 10;
 
+/**
+ * Class to represent a Cell in the Spreadsheet App
+ */
 class Cell {
   constructor(value="") {
     this._value = value;
@@ -12,11 +15,19 @@ class Cell {
   }
 
   get evaluatedValue() {
-    return Number.parseInt(this._evaluatedValue);
+    if (this._evaluatedValue.length === 0) {
+      return "";
+    }
+
+    if (!isNaN(this._evaluatedValue)) {
+      return Number.parseInt(this._evaluatedValue);
+    }
+
+    return this._evaluatedValue;
   }
 
   set value(value) {
-    this._value = value;
+    this._value = value.toUpperCase();
   }
 
   set evaluatedValue(value) {
@@ -24,7 +35,9 @@ class Cell {
   }
 }
 
-// Global application store to keep track of the application's state
+/**
+ * Global application store to keep track of the application's state
+ */
 const SpreadsheetApp = (() => {
   const _spreadsheet = new Array(NUMBER_OF_ROWS)
     .fill(0)
@@ -84,7 +97,7 @@ const SpreadsheetApp = (() => {
       cell.value = value;
 
       if (this._isFormula(value)) {
-        const result = this._evaluateFormula(value);
+        const result = this._evaluateFormula(cell.value);
         cell.evaluatedValue = result;
       } else {
         cell.evaluatedValue = value;
@@ -107,12 +120,13 @@ const SpreadsheetApp = (() => {
     _evaluateFormula(value) {
       const expression = value.slice(1); // discard = symbol
       const ops = expression.split('+');
+      console.log(ops)
       if (ops.length != 2) {
         return 'ERROR';
       }
       const [cellId1, cellId2] = ops;
-      const val1 = this.getCell(cellId1).evaluatedValue ?? 0;
-      const val2 = this.getCell(cellId2).evaluatedValue ?? 0;
+      const val1 = this.getCell(cellId1).evaluatedValue || 0;
+      const val2 = this.getCell(cellId2).evaluatedValue || 0;
       return val1 + val2;
     },
   };
@@ -215,12 +229,13 @@ function handleClickCell(e) {
   if (id && id === newId) {
     SpreadsheetApp.deselectCell();
   } else {
-    SpreadsheetApp.selectCell(newId);
     e.target.style.background = "orange";
     const cellValueInput = document.getElementById('cellValue');
     cellValueInput.disabled = false;
     cellValueInput.focus();
-    cellValueInput.value = SpreadsheetApp.getCell(newId).value;
+
+    SpreadsheetApp.selectCell(newId);
+    cellValueInput.value = SpreadsheetApp.getSelectedCell().value;
   }
 }
 
