@@ -6,7 +6,7 @@ const NUMBER_OF_COLUMNS = 10;
  * Class to represent a Cell in the Spreadsheet App
  */
 class Cell {
-  constructor(value="") {
+  constructor(value = "") {
     this._value = value;
     this._evaluatedValue = value;
   }
@@ -46,7 +46,7 @@ const SpreadsheetApp = (() => {
   let state = {
     selectedId: null,
     spreadsheet: _spreadsheet,
-  }
+  };
 
   const Store = {
     getSelectedId() {
@@ -62,7 +62,7 @@ const SpreadsheetApp = (() => {
       if (!this.isCellSelected()) {
         return null;
       }
-      return this.getCell(state.selectedId)
+      return this.getCell(state.selectedId);
     },
 
     isCellSelected() {
@@ -107,26 +107,31 @@ const SpreadsheetApp = (() => {
     },
 
     _isFormula(value) {
-      return isNaN(value) && value.startsWith('=');
+      return isNaN(value) && value.startsWith("=");
     },
 
     _getCoordinates(id) {
       if (!id) return null;
       const row = id.slice(1);
       const column = id[0];
-      return [Number.parseInt(row) - 1, column.charCodeAt(0) - 'A'.charCodeAt(0)];
+      return [
+        Number.parseInt(row) - 1,
+        column.charCodeAt(0) - "A".charCodeAt(0),
+      ];
     },
 
     _evaluateFormula(value) {
       const expression = value.slice(1); // discard = symbol
-      const ops = expression.split('+');
-      console.log(ops)
-      if (ops.length != 2) {
-        return 'ERROR';
+      const ops = expression.split("+");
+
+      // If the formula not in the form of Ax + By
+      // or contain circular reference, 
+      // the evaluate value should be invalid
+      if (ops.length != 2 || ops.includes(this.getSelectedId())) {
+        return "ERROR";
       }
-      const [cellId1, cellId2] = ops;
-      const val1 = this.getCell(cellId1).evaluatedValue || 0;
-      const val2 = this.getCell(cellId2).evaluatedValue || 0;
+      const val1 = this.getCell(ops[0]).evaluatedValue || 0;
+      const val2 = this.getCell(ops[1]).evaluatedValue || 0;
       return val1 + val2;
     },
   };
@@ -215,7 +220,6 @@ function createCellValueForm() {
 function handleClickCell(e) {
   e.preventDefault();
   const id = SpreadsheetApp.getSelectedId();
-
   const newId = e.target.id;
 
   // Deselect cell that are being selected
@@ -230,7 +234,7 @@ function handleClickCell(e) {
     SpreadsheetApp.deselectCell();
   } else {
     e.target.style.background = "orange";
-    const cellValueInput = document.getElementById('cellValue');
+    const cellValueInput = document.getElementById("cellValue");
     cellValueInput.disabled = false;
     cellValueInput.focus();
 
@@ -241,7 +245,7 @@ function handleClickCell(e) {
 
 /**
  * Get selected cell and handle update the cell value
- * @param {*} value 
+ * @param {*} value
  */
 function handleUpdateCellValue(value) {
   if (SpreadsheetApp.updateCell(value)) {
@@ -280,9 +284,9 @@ function initializeSpreadsheet() {
   const app = document.getElementById("app");
 
   // Create container for clear button and form
-  const controlGroup = document.createElement('div');
-  controlGroup.style.display = 'flex';
-  controlGroup.style.marginBottom = '1em';
+  const controlGroup = document.createElement("div");
+  controlGroup.style.display = "flex";
+  controlGroup.style.marginBottom = "1em";
 
   // Create core elements
   const table = createSpreadsheetTable(NUMBER_OF_ROWS, NUMBER_OF_COLUMNS);
