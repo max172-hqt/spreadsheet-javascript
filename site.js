@@ -12,7 +12,7 @@ class Cell {
   }
 
   get evaluatedValue() {
-    return this._evaluatedValue;
+    return Number.parseInt(this._evaluatedValue);
   }
 
   set value(value) {
@@ -28,28 +28,51 @@ class Cell {
 const SpreadsheetApp = (() => {
   const _spreadsheet = new Array(NUMBER_OF_ROWS)
     .fill(0)
-    .map(() => new Array(NUMBER_OF_COLUMNS).fill(new Cell()));
+    .map(() => new Array(NUMBER_OF_COLUMNS).fill(0).map(() => new Cell()));
 
-  let _state = {
+  let state = {
     selectedId: null,
     spreadsheet: _spreadsheet,
   }
 
   const Store = {
     getSelectedId() {
-      return _state.selectedId;
+      return state.selectedId;
+    },
+
+    getCell(id) {
+      const [row, col] = this._getCoordinates(id);
+      return state.spreadsheet[row][col];
+    },
+
+    getSelectedCell() {
+      if (!this.isCellSelected()) {
+        return null;
+      }
+      return this.getCell(state.selectedId)
     },
 
     isCellSelected() {
-      return _state.selectedId !== null;
+      return state.selectedId !== null;
     },
 
     selectCell(id) {
-      _state.selectedId = id;
+      state.selectedId = id;
     },
 
     deselectCell() {
-      _state.selectedId = null;
+      state.selectedId = null;
+    },
+
+    clearAllCells() {
+      // Clear cell data
+      for (let i = 0; i < NUMBER_OF_ROWS; i++) {
+        for (let j = 0; j < NUMBER_OF_COLUMNS; j++) {
+          state.spreadsheet[i][j] = new Cell();
+        }
+      }
+
+      state.selectedId = null;
     },
 
     updateCell(value) {
@@ -57,27 +80,40 @@ const SpreadsheetApp = (() => {
         return false;
       }
 
-      const [row, col] = this._getCoordinates();
-      const cell = _state.spreadsheet[row][col];
+      const cell = this.getSelectedCell();
       cell.value = value;
+
+      if (this._isFormula(value)) {
+        const result = this._evaluateFormula(value);
+        cell.evaluatedValue = result;
+      } else {
+        cell.evaluatedValue = value;
+      }
 
       return true;
     },
 
-    // _isFormula(value) {
-    //   if (!isNaN(value)) {
-    //     return false;
-    //   }
+    _isFormula(value) {
+      return isNaN(value) && value.startsWith('=');
+    },
 
-    //   return true;
-    // }
+    _getCoordinates(id) {
+      if (!id) return null;
+      const row = id.slice(1);
+      const column = id[0];
+      return [Number.parseInt(row) - 1, column.charCodeAt(0) - 'A'.charCodeAt(0)];
+    },
 
-    _getCoordinates() {
-      if (!_state.selectedId) {
-        return [-1, -1];
+    _evaluateFormula(value) {
+      const expression = value.slice(1); // discard = symbol
+      const ops = expression.split('+');
+      if (ops.length != 2) {
+        return 'ERROR';
       }
-      const [column, row] = _state.selectedId.split('-');
-      return [Number.parseInt(row) -1, column.charCodeAt(0) - 'A'.charCodeAt(0)];
+      const [cellId1, cellId2] = ops;
+      const val1 = this.getCell(cellId1).evaluatedValue ?? 0;
+      const val2 = this.getCell(cellId2).evaluatedValue ?? 0;
+      return val1 + val2;
     },
   };
 
@@ -119,7 +155,7 @@ function createSpreadsheetTable(numRows, numColumns) {
       } else {
         const td = document.createElement("td");
         td.classList.add("cell");
-        td.setAttribute("id", `${columnName}-${rowId}`);
+        td.setAttribute("id", `${columnName}${rowId}`);
         tr.appendChild(td);
       }
     }
@@ -137,6 +173,9 @@ function createSpreadsheetTable(numRows, numColumns) {
   return table;
 }
 
+/**
+ * @returns Input element to update cell value
+ */
 function createCellValueForm() {
   const inputValueForm = document.createElement("form");
   const cellValueInput = document.createElement("input");
@@ -157,7 +196,6 @@ function createCellValueForm() {
 
 /**
  * Handle on click cell and update cell id
- *
  * @param {Event} e
  */
 function handleClickCell(e) {
@@ -178,11 +216,11 @@ function handleClickCell(e) {
     SpreadsheetApp.deselectCell();
   } else {
     SpreadsheetApp.selectCell(newId);
-    e.target.style.background = "red";
+    e.target.style.background = "orange";
     const cellValueInput = document.getElementById('cellValue');
-    cellValueInput.disabled = !SpreadsheetApp.isCellSelected();
+    cellValueInput.disabled = false;
     cellValueInput.focus();
-    cellValueInput.value = "";
+    cellValueInput.value = SpreadsheetApp.getCell(newId).value;
   }
 }
 
@@ -194,7 +232,7 @@ function handleUpdateCellValue(value) {
   if (SpreadsheetApp.updateCell(value)) {
     const id = SpreadsheetApp.getSelectedId();
     const cell = document.getElementById(id);
-    cell.innerHTML = value;
+    cell.innerHTML = SpreadsheetApp.getSelectedCell().evaluatedValue;
   } else {
     // TODO: Error for invalid formula
   }
@@ -204,18 +242,15 @@ function handleUpdateCellValue(value) {
  * Create clear button element
  * @returns Clear button element
  */
-function createClearBtn(tableEl) {
+function createClearBtn() {
   const clearBtn = document.createElement("button");
   clearBtn.innerHTML = "Clear";
   clearBtn.style.marginRight = "1em";
 
   clearBtn.addEventListener("click", function () {
+    SpreadsheetApp.clearAllCells();
     for (let cell of document.getElementsByClassName("cell")) {
-      if (cell.innerHTML != "") {
-        cell.innerHTML = "";
-      } else {
-        cell.innerHTML = "";
-      }
+      cell.innerHTML = "";
     }
   });
 
@@ -237,7 +272,7 @@ function initializeSpreadsheet() {
   // Create core elements
   const table = createSpreadsheetTable(NUMBER_OF_ROWS, NUMBER_OF_COLUMNS);
   const cellValueForm = createCellValueForm();
-  const clearButton = createClearBtn(table);
+  const clearButton = createClearBtn();
 
   // Append core elements to the app container
   controlGroup.appendChild(clearButton);
