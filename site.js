@@ -135,7 +135,7 @@ const SpreadsheetApp = (() => {
      * A4 = any + A3
      * If we update A1, then A3, A4 also needs to be updated
      * 
-     * @param {String} value 
+     * @param {String} value input from user, numeric or formula
      * @returns list of cell ids that need to be updated
      */
     updateCell(value) {

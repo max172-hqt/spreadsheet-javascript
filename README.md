@@ -22,3 +22,10 @@
   - value: can be a string of numeric values or a string of formula. 
   This will be shown on the cell value text box to allow user to update / edit
   - evaluatedValue: the evaluated value, which will actually be shown on the cell
+- SpreadsheetApp
+  - The state of the app, containing cells and keeping track of the currently selected cell
+  - Functions to update the state
+    - select cell, deselect cell, update cell value (evaluate expressions or assign numeric values), clear all cell values
+    - When events are triggered, event handlers will update the app states.
+    Then, elements' content will be updated based on the new state
+
