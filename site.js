@@ -154,6 +154,7 @@ const SpreadsheetApp = (() => {
         cell.evaluatedValue = value;
       }
 
+      // Update value of all related cells
       const updatedCellIds = this._getDependencyCells(this.getSelectedId());
       updatedCellIds.forEach(id => {
         const currCell = this.getCell(id);
@@ -166,7 +167,7 @@ const SpreadsheetApp = (() => {
     },
 
     /**
-     * List of cells that depend on this cell, recursively
+     * Get list of cells that depend on this cell, recursively
      * 
      * @param {String} id 
      * @returns List of cells
@@ -331,7 +332,7 @@ function createCellValueForm() {
     handleUpdateCellValue(value);
   });
 
-  // Append elements to the body
+  // Append input el to the form
   inputValueForm.appendChild(cellValueInput);
   return inputValueForm;
 }
