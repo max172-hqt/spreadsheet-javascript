@@ -2,6 +2,8 @@
 const NUMBER_OF_ROWS = 20;
 const NUMBER_OF_COLUMNS = 10;
 
+// ================== APPLICATION LOGIC ==================
+
 /**
  * Class to represent a Cell in the Spreadsheet App
  */
@@ -49,15 +51,28 @@ const SpreadsheetApp = (() => {
   };
 
   const Store = {
+    /**
+     * Get current selected cell id
+     */
     getSelectedId() {
       return state.selectedId;
     },
 
+    /**
+     * Get cell object in the spreadsheet
+     * 
+     * @param {int} id: id string (A1, A2, ...)
+     * @returns cell object in the spreadsheet
+     */
     getCell(id) {
       const [row, col] = this._getCoordinates(id);
       return state.spreadsheet[row][col];
     },
 
+    /**
+     * Get current selected cell object
+     * @returns cell object
+     */
     getSelectedCell() {
       if (!this.isCellSelected()) {
         return null;
@@ -65,18 +80,32 @@ const SpreadsheetApp = (() => {
       return this.getCell(state.selectedId);
     },
 
+    /**
+     * Check if a cell is currently selected
+     * @returns boolean
+     */
     isCellSelected() {
       return state.selectedId !== null;
     },
 
+    /**
+     * Select a cell
+     * @param {*} id 
+     */
     selectCell(id) {
       state.selectedId = id;
     },
 
+    /**
+     * Deselect cell
+     */
     deselectCell() {
       state.selectedId = null;
     },
 
+    /**
+     * Clear all cells in the spreadsheet
+     */
     clearAllCells() {
       // Clear cell data
       for (let i = 0; i < NUMBER_OF_ROWS; i++) {
@@ -88,28 +117,90 @@ const SpreadsheetApp = (() => {
       state.selectedId = null;
     },
 
+    /**
+     * Update and re-evaluate cell value
+     * 
+     * If numeric value, evaluated value is simply value
+     * Otherwise, evaluate the formula and update the evaluated value
+     * 
+     * Then, Update all cells that depend on this cell
+     * For example,
+     * A1 = 1, A2 = 2
+     * A3 = A1 + A2
+     * If we update A1, then A3 also needs to be updated
+     * 
+     * A4 = any + A3
+     * If we update A1, then A3, A4 also needs to be updated
+     * 
+     * @param {String} value 
+     * @returns list of cell ids that need to be updated
+     */
     updateCell(value) {
-      if (!this.getSelectedId()) {
-        return false;
-      }
-
       const cell = this.getSelectedCell();
       cell.value = value;
 
       if (this._isFormula(value)) {
-        const result = this._evaluateFormula(cell.value);
+        const result = this._evaluateFormula(this.getSelectedId());
         cell.evaluatedValue = result;
+        if (cell.evaluatedValue === 'ERROR') {
+          return [this.getSelectedId()];
+        }
       } else {
         cell.evaluatedValue = value;
       }
 
-      return true;
+      const updatedCellIds = this._getDependencyCells(this.getSelectedId());
+      updatedCellIds.forEach(id => {
+        const currCell = this.getCell(id);
+        const result = this._evaluateFormula(id);
+        currCell.evaluatedValue = result;
+      });
+
+      updatedCellIds.push(this.getSelectedId());
+      return updatedCellIds;
     },
 
-    _isFormula(value) {
-      return isNaN(value) && value.startsWith("=");
+    /**
+     * List of cells that depend on this cell, recursively
+     * 
+     * @param {String} id 
+     * @returns List of cells
+     */
+    _getDependencyCells(id) {
+      const dependencyList = [];
+      const helper = (id) => {
+        for (let i = 0; i < NUMBER_OF_ROWS; i++) {
+          for (let j = 0; j < NUMBER_OF_COLUMNS; j++) {
+            const currCell = state.spreadsheet[i][j];
+            const currId = this._getId(i, j);
+
+            if (currCell.value.includes(id)) {
+              dependencyList.push(currId);
+              helper(currId); 
+            }
+          }
+        }
+      }
+      helper(id);
+      return dependencyList;
     },
 
+    /**
+     * Check if the expression is formula
+     * 
+     * @param {String} expression
+     * @returns 
+     */
+    _isFormula(expression) {
+      return isNaN(expression) && expression.startsWith("=");
+    },
+
+    /**
+     * Return the coordinates of the cell in spreadsheet
+     * 
+     * @param {String} id 
+     * @returns 
+     */
     _getCoordinates(id) {
       if (!id) return null;
       const row = id.slice(1);
@@ -120,16 +211,40 @@ const SpreadsheetApp = (() => {
       ];
     },
 
-    _evaluateFormula(value) {
-      const expression = value.slice(1); // discard = symbol
+    /**
+     * Return the id string from x, y coordiante
+     * 
+     * @param {Number} x 
+     * @param {Number} y 
+     * @returns id
+     */
+    _getId(x, y) {
+      if (x < 0 || x >= NUMBER_OF_ROWS || y < 0 || y >= NUMBER_OF_COLUMNS) {
+        throw new Error("Invalid x and y");
+      }
+      
+      return `${String.fromCharCode('A'.charCodeAt(0) + y)}${x+1}`;
+    },
+
+    /**
+     * Evaluate the formula in the cell
+     * 
+     * @param {String} id 
+     * @returns Evaulated value
+     */
+    _evaluateFormula(id) {
+      const cell = this.getCell(id);
+      const expression = cell.value.slice(1); // discard '=' symbol
       const ops = expression.split("+");
 
       // If the formula not in the form of Ax + By
       // or contain circular reference, 
       // the evaluate value should be invalid
-      if (ops.length != 2 || ops.includes(this.getSelectedId())) {
+      if (ops.length != 2 || ops.includes(id)) {
         return "ERROR";
       }
+
+      // Get values of 2 cells in the expression
       const val1 = this.getCell(ops[0]).evaluatedValue || 0;
       const val2 = this.getCell(ops[1]).evaluatedValue || 0;
       return val1 + val2;
@@ -138,7 +253,9 @@ const SpreadsheetApp = (() => {
 
   return Object.freeze(Store);
 })();
+// ================== END APPLICATION LOGIC ==================
 
+// ==================       UI LOGIC        ==================
 /**
  * Draw the spreadsheet table
  *
@@ -155,7 +272,7 @@ function createSpreadsheetTable(numRows, numColumns) {
   for (let rowId = 0; rowId < numRows + 1; rowId++) {
     const tr = document.createElement("tr");
 
-    // Add label for eachrowId
+    // Add label for each row on the first column (1,2,3...)
     const td = document.createElement("td");
     if (rowId >= 1) {
       td.innerHTML = rowId;
@@ -164,14 +281,15 @@ function createSpreadsheetTable(numRows, numColumns) {
     tr.appendChild(td);
 
     for (let colId = 0; colId < numColumns; colId++) {
-      // Add label for each column
       const columnName = String.fromCharCode(label.charCodeAt(0) + colId);
       if (rowId === 0) {
+        // Add label for each column on the first row (A, B, C ...)
         const th = document.createElement("th");
         th.innerHTML = columnName;
         th.classList.add("columnLabel");
         tr.appendChild(th);
       } else {
+        // Create normal cell
         const td = document.createElement("td");
         td.classList.add("cell");
         td.setAttribute("id", `${columnName}${rowId}`);
@@ -248,13 +366,12 @@ function handleClickCell(e) {
  * @param {*} value
  */
 function handleUpdateCellValue(value) {
-  if (SpreadsheetApp.updateCell(value)) {
-    const id = SpreadsheetApp.getSelectedId();
+  const updatedCellIds = SpreadsheetApp.updateCell(value);
+
+  updatedCellIds.forEach(id => {
     const cell = document.getElementById(id);
-    cell.innerHTML = SpreadsheetApp.getSelectedCell().evaluatedValue;
-  } else {
-    // TODO: Error for invalid formula
-  }
+    cell.innerHTML = SpreadsheetApp.getCell(id).evaluatedValue;
+  })
 }
 
 /**
