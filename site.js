@@ -1,17 +1,20 @@
 // Global constants
-const NUMBER_OF_ROWS = 20;
+const NUMBER_OF_ROWS = 10;
 const NUMBER_OF_COLUMNS = 10;
 
 // ================== APPLICATION LOGIC ==================
-
 /**
  * Class to represent a Cell in the Spreadsheet App
+ * 
+ * value: The expression, could be numeric value or formula 
+ * evaluatedValue: The evaluated and displayed value in the cell
  */
 class Cell {
   constructor(value = "") {
     this._value = value;
     this._evaluatedValue = value;
   }
+  // Getters and setters
   get value() {
     return this._value;
   }
@@ -137,11 +140,13 @@ const SpreadsheetApp = (() => {
      */
     updateCell(value) {
       const cell = this.getSelectedCell();
+      value = value.replaceAll(' ', '');
       cell.value = value;
 
       if (this._isFormula(value)) {
         const result = this._evaluateFormula(this.getSelectedId());
         cell.evaluatedValue = result;
+        // Return if the cell evaluated value is ERROR
         if (cell.evaluatedValue === 'ERROR') {
           return [this.getSelectedId()];
         }
@@ -387,7 +392,11 @@ function createClearBtn() {
     SpreadsheetApp.clearAllCells();
     for (let cell of document.getElementsByClassName("cell")) {
       cell.innerHTML = "";
+      cell.style.background = "none";
     }
+    const valueForm = document.getElementById('cellValue');
+    valueForm.value = '';
+    valueForm.disabled = true;
   });
 
   return clearBtn;
